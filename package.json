@@ -1,0 +1,24 @@
+{
+  "name": "requester",
+  "version": "1.0.0",
+  "description": "ui for comfortable sending WS message",
+  "homepage": "https://github.com/Botaliy/requester#readme",
+  "bugs": {
+    "url": "https://github.com/Botaliy/requester/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Botaliy/requester.git"
+  },
+  "license": "ISC",
+  "author": "Vitalii Pozdeev",
+  "type": "commonjs",
+  "main": "requester.js",
+  "scripts": {
+    "test": "test",
+    "start": "electron ."
+  },
+  "devDependencies": {
+    "electron": "^43.2.0"
+  }
+}
