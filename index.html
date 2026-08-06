@@ -1,21 +1,175 @@
-<!DOCTYPE html>
-<html>
+<!doctype html>
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta
-      http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'"
-    />
-    <meta
-      http-equiv="X-Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'"
-    />
-    <title>Hello from Electron renderer!</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:" />
+    <title>Requester</title>
+    <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <h1>Hello from Electron renderer!</h1>
-    <p>👋</p>
-    <p id="info"></p>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand"><span class="brand-mark">R</span><span>Requester</span></div>
+        <div class="section-heading"><span>Connections</span><button id="add-connection" class="icon-button" title="Add connection">+</button></div>
+        <nav id="connection-list" class="connection-list"></nav>
+        <div class="sidebar-footer">
+          <div class="nav-scope">Current connection</div>
+          <button class="nav-button active" data-view="workspace"><span>⌁</span><span>Console</span><kbd class="nav-shortcut">⌘1</kbd></button>
+          <button class="nav-button" data-view="triggers"><span>ϟ</span><span>Automation</span><kbd class="nav-shortcut">⌘2</kbd></button>
+          <div class="nav-scope workspace-scope">Workspace</div>
+          <button class="nav-button" data-view="variables"><span>{ }</span><span>Variables</span><kbd class="nav-shortcut">⌘3</kbd></button>
+        </div>
+      </aside>
+
+      <main class="main">
+        <header class="topbar">
+          <div class="connection-title-wrap">
+            <input id="connection-name" class="connection-name" value="Local socket" aria-label="Connection name" />
+            <span id="connection-status" class="status disconnected">Disconnected</span>
+          </div>
+        </header>
+
+        <section id="workspace-view" class="view active">
+          <div class="connect-bar">
+            <input id="connection-url" class="url-input" placeholder="ws://localhost:8080/socket" spellcheck="false" />
+            <label class="environment-switch" title="Active variable environment">
+              <span>ENV</span>
+              <select id="environment-select" aria-label="Active environment"></select>
+            </label>
+            <button id="headers-toggle" class="button ghost">Headers <span id="headers-count" class="count">0</span></button>
+            <button id="connect-button" class="button primary">Connect</button>
+          </div>
+          <div id="headers-panel" class="headers-panel hidden">
+            <div class="editor-toolbar headers-editor-toolbar">
+              <span class="editor-language"><span class="language-dot"></span> Headers · JSON · templates supported</span>
+              <div class="editor-actions">
+                <button id="format-headers" class="editor-action" title="Format headers JSON">Format JSON</button>
+                <button id="copy-headers" class="editor-action" title="Copy headers">Copy</button>
+                <button id="clear-headers" class="editor-action danger-text" title="Clear headers">Clear</button>
+              </div>
+            </div>
+            <div id="connection-headers" class="headers-editor" aria-label="WebSocket headers editor"></div>
+            <div id="headers-error" class="inline-error hidden"></div>
+          </div>
+
+          <div class="workspace-grid">
+            <section class="traffic-pane">
+              <div class="pane-title traffic-title">
+                <div class="traffic-heading"><span>Traffic</span><span id="message-count" class="muted">0 messages</span></div>
+                <div class="traffic-tools">
+                  <div id="traffic-filters" class="segmented">
+                    <button class="segment active" data-filter="all">All</button>
+                    <button class="segment" data-filter="incoming">In</button>
+                    <button class="segment" data-filter="outgoing">Out</button>
+                    <button class="segment" data-filter="system">System</button>
+                  </div>
+                  <div class="search-wrap">
+                    <input id="traffic-search" class="search-input" placeholder="Search text…" aria-label="Search traffic by partial text" />
+                    <button id="clear-search" class="search-clear hidden" title="Clear search" aria-label="Clear search">×</button>
+                  </div>
+                  <button id="clear-log" class="button small ghost" title="Remove all traffic messages">Clear</button>
+                  <button id="show-tools" class="button small ghost hidden">Show composer</button>
+                </div>
+              </div>
+              <div id="traffic" class="traffic empty-state">
+                <div class="empty-icon">↔</div>
+                <strong>No messages yet</strong>
+                <span>Connect and send a message to start</span>
+                <div class="empty-actions">
+                  <button id="empty-connect" class="button primary">Connect</button>
+                  <button id="load-example" class="button ghost">Load example</button>
+                </div>
+              </div>
+            </section>
+
+            <div id="tool-resizer" class="tool-resizer" title="Drag to resize"></div>
+            <section class="tool-pane">
+              <div class="tabs">
+                <button class="tab active" data-tab="compose">Compose</button>
+                <button class="tab" data-tab="library">Library</button>
+                <button class="tab" data-tab="scenarios">Scenarios</button>
+                <button id="hide-tools" class="collapse-button" title="Hide panel">›</button>
+              </div>
+              <div id="compose-tab" class="tab-panel active">
+                <div class="editor-toolbar">
+                  <span class="editor-language"><span class="language-dot"></span> JSON / Text</span>
+                  <div class="editor-actions">
+                    <button id="format-message" class="editor-action" title="Format JSON">Format JSON</button>
+                    <button id="copy-composer" class="editor-action" title="Copy message">Copy</button>
+                    <button id="clear-composer" class="editor-action danger-text" title="Clear editor">Clear</button>
+                  </div>
+                </div>
+                <div id="composer" class="composer-editor" aria-label="WebSocket message editor"></div>
+                <div id="template-error" class="inline-error hidden"></div>
+                <div class="template-help">Templates: <code>{{ vars.token }}</code> <code>{{ last.id }}</code> <code>{{ Date.now() }}</code></div>
+                <div class="send-row">
+                  <button id="save-message" class="button ghost">Save to library</button>
+                  <button id="send-message" class="button primary">Send <kbd>⌘↵</kbd></button>
+                </div>
+              </div>
+              <div id="library-tab" class="tab-panel">
+                <div class="panel-actions"><button id="add-group" class="button ghost">+ Group</button></div>
+                <div id="library-list" class="stack-list"></div>
+              </div>
+              <div id="scenarios-tab" class="tab-panel">
+                <div class="panel-actions"><button id="add-scenario" class="button ghost">+ Scenario</button></div>
+                <div id="scenario-list" class="stack-list"></div>
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <section id="variables-view" class="view settings-view">
+          <div class="settings-header">
+            <div><h1>Variable environments</h1><p>Switch complete sets of values for local, staging or production connections.</p></div>
+            <div class="settings-actions">
+              <button id="duplicate-environment" class="button ghost">Duplicate</button>
+              <button id="add-environment" class="button ghost">+ Environment</button>
+              <button id="add-variable" class="button primary">+ Variable</button>
+            </div>
+          </div>
+          <div class="environment-editor">
+            <div class="environment-picker-wrap">
+              <label>Active environment</label>
+              <select id="variables-environment-select" class="select-input"></select>
+            </div>
+            <div class="environment-name-wrap">
+              <label>Environment name</label>
+              <input id="environment-name" class="text-input" placeholder="Environment name" />
+            </div>
+            <button id="delete-environment" class="button ghost danger">Delete environment</button>
+          </div>
+          <div class="settings-card">
+            <div class="variable-head"><span>Name</span><span>Type</span><span>Value / JavaScript expression</span><span></span></div>
+            <div id="variables-list"></div>
+          </div>
+          <div class="callout"><strong>Computed variables</strong><span>Run in an isolated JavaScript context. Available: <code>Date</code>, <code>Math</code>, <code>message</code>, <code>last</code>, <code>history</code> and already defined <code>vars</code>.</span></div>
+        </section>
+
+        <section id="triggers-view" class="view settings-view">
+          <div class="settings-header"><div><div class="eyebrow">Current connection · <span id="automation-connection-name"></span></div><h1>Automation</h1><p>Automatically respond when an incoming message matches.</p></div><button id="add-trigger" class="button primary">+ Trigger</button></div>
+          <div id="triggers-list" class="trigger-list"></div>
+        </section>
+      </main>
+    </div>
+
+    <div id="toast" class="toast"></div>
+    <div id="app-modal" class="modal-backdrop hidden" role="presentation">
+      <section class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+        <h2 id="modal-title">Enter a value</h2>
+        <p id="modal-message" class="modal-message hidden"></p>
+        <label id="modal-input-label" class="modal-field-label hidden" for="modal-input">Name</label>
+        <input id="modal-input" class="text-input modal-input" autocomplete="off" />
+        <label id="modal-select-label" class="modal-field-label hidden" for="modal-select">Group</label>
+        <select id="modal-select" class="select-input modal-select hidden"></select>
+        <div class="modal-actions">
+          <button id="modal-cancel" class="button ghost">Cancel</button>
+          <button id="modal-confirm" class="button primary">Create</button>
+        </div>
+      </section>
+    </div>
+    <script src="composer-editor.bundle.js"></script>
+    <script src="renderer.js"></script>
   </body>
-  <script src="./renderer.js"></script>
 </html>
